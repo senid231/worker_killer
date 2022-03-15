@@ -2,44 +2,43 @@ require 'worker_killer/memory_limiter'
 require 'worker_killer/count_limiter'
 
 module WorkerKiller
-  class DelayedJobPlugin
+  module DelayedJobPlugin
+    module JobsLimiter
+      module_function
 
-    attr_reader :limiter, :killer, :reaction
-
-    def initialize(klass:, killer:, reaction: nil, **opts)
-      @killer = killer
-
-      @reaction = reaction || proc do |l, k, dj|
-        k.kill(l.started_at, dj: dj)
-      end
-
-      @limiter = klass.new(opts)
-    end
-
-    def new(*_args)
-      configure_lifecycle(Delayed::Worker.lifecycle)
-    end
-
-    def configure_lifecycle(lifecycle)
-      lifecycle.after(:perform) do |worker, *_args|
-        reaction.call(limiter, killer, worker) if limiter.check
+      def new(killer:, **options)
+        ::WorkerKiller::DelayedJobPlugin.build_plugin(
+          killer: killer,
+          limiter_class: ::WorkerKiller::CountLimiter,
+          **options
+        )
       end
     end
 
-    class JobsLimiter < ::WorkerKiller::DelayedJobPlugin
+    module OOMLimiter
+      module_function
 
-      def initialize(**opts)
-        super(klass: ::WorkerKiller::CountLimiter, **opts)
+      def new(killer: nil, **options)
+        ::WorkerKiller::DelayedJobPlugin.build_plugin(
+          killer: killer,
+          limiter_class: ::WorkerKiller::MemoryLimiter,
+          **options
+        )
       end
-
     end
 
-    class OOMLimiter < ::WorkerKiller::DelayedJobPlugin
+    module_function
 
-      def initialize(**opts)
-        super(klass: ::WorkerKiller::MemoryLimiter, **opts)
+    def build_plugin(killer: nil, limiter_class:, **options)
+      limiter = limiter_class.new(**options)
+      killer ||= ::WorkerKiller::Killer::DelayedJob.new
+      Class.new(Delayed::Plugin) do
+        callbacks do |lifecycle|
+          lifecycle.after(:perform) do |worker, *_args|
+            killer.kill(limiter.started_at, dj: worker) if limiter.check
+          end
+        end
       end
-
     end
 
   end
