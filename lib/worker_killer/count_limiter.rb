@@ -15,12 +15,13 @@ module WorkerKiller
       return nil if @limit <= 1
 
       @started_at ||= Time.now
+      @left -= 1
 
       if @verbose
         logger.info "#{self}: worker (pid: #{Process.pid}) has #{@left} left before being limited"
       end
 
-      return false if (@left -= 1) > 0
+      return false if @left > 0
 
       logger.warn "#{self}: worker (pid: #{Process.pid}) exceeds max number of requests (limit: #{@limit})"
 

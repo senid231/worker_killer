@@ -24,7 +24,7 @@ module WorkerKiller
 
       rss = GetProcessMem.new.bytes
       if @verbose
-        logger.info "#{self}: worker (pid: #{Process.pid}) using #{rss} bytes(#{rss / 1024 / 1024}mb)."
+        logger.info "#{self}: worker (pid: #{Process.pid}) using #{rss} bytes (#{rss / 1024 / 1024}mb)."
       end
       @check_count = 0
 
